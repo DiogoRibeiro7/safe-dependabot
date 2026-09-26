@@ -187,7 +187,10 @@ def test_detects_multiple_ecosystems(tmp_path: Path) -> None:
 def test_uv_lock_selects_uv_ecosystem(tmp_path: Path) -> None:
     """A pyproject with uv.lock should be treated as a uv project."""
 
-    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='demo'\n",
+        encoding="utf-8",
+    )
     (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
 
     detected = validator.detect_ecosystems(tmp_path)
