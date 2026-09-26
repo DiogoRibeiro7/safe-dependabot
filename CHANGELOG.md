@@ -2,9 +2,11 @@
 
 All notable changes to Safe Dependabot will be documented in this file.
 
-The project follows semantic versioning once public releases begin.
+The project follows semantic versioning.
 
 ## Unreleased
+
+## 1.0.0 - 2026-09-26
 
 ### Added
 
@@ -14,7 +16,9 @@ The project follows semantic versioning once public releases begin.
 - Configurable policy inputs and action outputs.
 - MkDocs documentation with GitHub Pages deployment.
 - Self-validation against the repository's own Dependabot configuration.
+- Repository governance files and contribution templates.
+- Automated semantic release workflow with a moving stable major tag.
 
 ### Changed
 
-- Repository documentation and action metadata now describe ecosystem detection consistently.
+- Repository documentation and action metadata describe ecosystem detection consistently.
