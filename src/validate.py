@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any, Final
 
 import yaml
-
 
 MAJOR_UPDATE: Final[str] = "version-update:semver-major"
 ALLOWED_INTERVALS: Final[set[str]] = {
@@ -286,14 +285,17 @@ def validate(
 
         has_location = "directory" in raw_update or "directories" in raw_update
         if not has_location:
-            errors.append(f"{label} ({ecosystem}) must define directory or directories.")
+            errors.append(
+                f"{label} ({ecosystem}) must define directory or directories."
+            )
 
         schedule = raw_update.get("schedule")
         if isinstance(schedule, dict):
             interval = schedule.get("interval")
             if interval not in ALLOWED_INTERVALS:
                 errors.append(
-                    f"{label} ({ecosystem}) uses unsupported schedule interval {interval!r}."
+                    f"{label} ({ecosystem}) uses unsupported schedule "
+                    f"interval {interval!r}."
                 )
         elif "multi-ecosystem-group" not in raw_update:
             errors.append(f"{label} ({ecosystem}) must define a schedule.")
