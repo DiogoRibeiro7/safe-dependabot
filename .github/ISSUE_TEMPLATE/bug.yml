@@ -1,0 +1,48 @@
+name: Bug report
+description: Report incorrect validation, detection, or action behavior.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Include a minimal Dependabot configuration or repository layout when possible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened?
+      placeholder: Describe the observed behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should Safe Dependabot have done?
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant Dependabot configuration
+      description: Paste the smallest configuration that reproduces the issue.
+      render: yaml
+
+  - type: textarea
+    id: manifests
+    attributes:
+      label: Relevant manifests
+      description: List files such as pyproject.toml, Cargo.toml, package.json, or go.mod that affect detection.
+
+  - type: input
+    id: version
+    attributes:
+      label: Safe Dependabot version
+      placeholder: v1, v1.0.0, or commit SHA
+    validations:
+      required: true
