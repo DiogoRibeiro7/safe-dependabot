@@ -1,0 +1,47 @@
+name: "Safe Dependabot"
+description: "Validate Dependabot configuration against conservative dependency-update policies."
+author: "Diogo Ribeiro"
+branding:
+  icon: "shield"
+  color: "green"
+
+inputs:
+  config-path:
+    description: "Path to the Dependabot configuration file."
+    required: false
+    default: ".github/dependabot.yml"
+  max-open-prs:
+    description: "Maximum allowed open Dependabot pull requests per update block."
+    required: false
+    default: "5"
+  require-major-ignore:
+    description: "Require routine semver-major updates to be ignored."
+    required: false
+    default: "true"
+  require-github-actions:
+    description: "Require a github-actions update block."
+    required: false
+    default: "true"
+  fail-on-broad-groups:
+    description: "Fail when a dependency group matches every dependency with '*'."
+    required: false
+    default: "false"
+
+outputs:
+  update-blocks:
+    description: "Number of Dependabot update blocks validated."
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - "--config"
+    - "${{ inputs.config-path }}"
+    - "--max-open-prs"
+    - "${{ inputs.max-open-prs }}"
+    - "--require-major-ignore"
+    - "${{ inputs.require-major-ignore }}"
+    - "--require-github-actions"
+    - "${{ inputs.require-github-actions }}"
+    - "--fail-on-broad-groups"
+    - "${{ inputs.fail-on-broad-groups }}"
