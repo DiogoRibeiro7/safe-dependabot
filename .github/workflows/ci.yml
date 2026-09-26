@@ -34,45 +34,11 @@ jobs:
       - name: Test
         run: pytest -q
 
-  action-smoke:
+  self-check:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Create valid fixture
-        run: |
-          mkdir -p .github
-          cat > .github/dependabot.yml <<'YAML'
-          version: 2
-          updates:
-            - package-ecosystem: pip
-              directory: /
-              schedule:
-                interval: weekly
-              open-pull-requests-limit: 5
-              ignore:
-                - dependency-name: "*"
-                  update-types:
-                    - version-update:semver-major
-            - package-ecosystem: github-actions
-              directory: /
-              schedule:
-                interval: weekly
-              open-pull-requests-limit: 5
-              ignore:
-                - dependency-name: "*"
-                  update-types:
-                    - version-update:semver-major
-          YAML
-
-      - name: Create Python manifest for ecosystem detection
-        run: |
-          cat > pyproject.toml <<'TOML'
-          [project]
-          name = "fixture"
-          version = "0.0.0"
-          TOML
-
-      - name: Run action
+      - name: Validate this repository's Dependabot policy
         uses: ./
