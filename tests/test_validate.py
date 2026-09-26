@@ -164,3 +164,75 @@ def test_github_actions_block_can_be_required() -> None:
     )
 
     assert "A github-actions update block is required by policy." in errors
+
+
+def test_detects_multiple_ecosystems(tmp_path: Path) -> None:
+    """Repository manifests should map to the matching Dependabot ecosystems."""
+
+    (tmp_path / "Cargo.toml").write_text("[package]\nname='demo'\nversion='0.1.0'\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text('{"name":"demo"}', encoding="utf-8")
+    (tmp_path / "go.mod").write_text("module example.com/demo\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+
+    detected = validator.detect_ecosystems(tmp_path)
+
+    assert set(detected) == {"cargo", "gomod", "npm", "pip"}
+
+
+def test_uv_lock_selects_uv_ecosystem(tmp_path: Path) -> None:
+    """A pyproject with uv.lock should be treated as a uv project."""
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+
+    detected = validator.detect_ecosystems(tmp_path)
+
+    assert set(detected) == {"uv"}
+
+
+def test_missing_detected_ecosystem_fails_validation() -> None:
+    """Detected manifests must have corresponding Dependabot coverage."""
+
+    config = safe_config()
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"cargo": ["Cargo.toml"], "pip": ["pyproject.toml"]},
+    )
+
+    assert any("Detected cargo manifest" in error for error in errors)
+
+
+def test_detected_ecosystems_pass_when_configured() -> None:
+    """Detected manifests should pass when every ecosystem is configured."""
+
+    config = safe_config()
+    config["updates"].append(
+        {
+            "package-ecosystem": "cargo",
+            "directory": "/",
+            "schedule": {"interval": "weekly"},
+            "open-pull-requests-limit": 5,
+            "ignore": [
+                {
+                    "dependency-name": "*",
+                    "update-types": ["version-update:semver-major"],
+                }
+            ],
+        }
+    )
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"cargo": ["Cargo.toml"], "pip": ["pyproject.toml"]},
+    )
+
+    assert errors == []
