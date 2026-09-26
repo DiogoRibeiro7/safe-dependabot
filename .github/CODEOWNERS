@@ -1,0 +1,14 @@
+# Default ownership
+* @DiogoRibeiro7
+
+# Action and policy implementation
+/action.yml @DiogoRibeiro7
+/src/ @DiogoRibeiro7
+/tests/ @DiogoRibeiro7
+
+# Automation and repository policy
+/.github/ @DiogoRibeiro7
+
+# Documentation
+/docs/ @DiogoRibeiro7
+/mkdocs.yml @DiogoRibeiro7

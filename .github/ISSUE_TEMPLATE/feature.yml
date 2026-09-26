@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a new policy rule, ecosystem, or validator capability.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What repository or dependency-management problem would this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the expected validation behavior or interface.
+    validations:
+      required: true
+
+  - type: input
+    id: ecosystem
+    attributes:
+      label: Ecosystem
+      description: If applicable, provide the Dependabot ecosystem name.
+      placeholder: cargo, npm, pip, github-actions, etc.
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example configuration
+      description: Include a concrete configuration example when useful.
+      render: yaml
