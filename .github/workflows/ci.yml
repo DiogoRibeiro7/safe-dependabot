@@ -66,5 +66,13 @@ jobs:
                     - version-update:semver-major
           YAML
 
+      - name: Create Python manifest for ecosystem detection
+        run: |
+          cat > pyproject.toml <<'TOML'
+          [project]
+          name = "fixture"
+          version = "0.0.0"
+          TOML
+
       - name: Run action
         uses: ./
