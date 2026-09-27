@@ -11,7 +11,8 @@ The default policy is intentionally simple:
 - require routine semantic-versioning major version updates to be blocked without suppressing security remediation;
 - allow at most five open Dependabot pull requests per update block;
 - detect dependency manifests and require matching Dependabot ecosystem **and manifest-directory** coverage;
-- warn when a dependency group matches every dependency, because broad groups can make CI failures harder to isolate.
+- warn when a dependency group matches every dependency, because broad groups can make CI failures harder to isolate;
+- validate multi-ecosystem group references, group schedules, and required member patterns.
 
 ## Usage
 
