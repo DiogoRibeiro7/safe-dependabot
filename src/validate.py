@@ -351,7 +351,10 @@ def validate_multi_ecosystem_groups(
         if (
             not isinstance(patterns, list)
             or not patterns
-            or not all(isinstance(pattern, str) and pattern.strip() for pattern in patterns)
+            or not all(
+                isinstance(pattern, str) and pattern.strip()
+                for pattern in patterns
+            )
         ):
             errors.append(
                 f"{label} ({group_name}) must define a non-empty patterns list."
