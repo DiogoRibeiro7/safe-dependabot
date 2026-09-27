@@ -11,18 +11,22 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 ```
 
 ## Rust
@@ -36,18 +40,22 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 ```
 
 ## Node
@@ -61,18 +69,22 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 ```
 
 ## Mixed Python and Rust repository
@@ -86,25 +98,31 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: cargo
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
-        update-types: [version-update:semver-major]
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
 ```
