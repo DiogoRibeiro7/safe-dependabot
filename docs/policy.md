@@ -4,16 +4,21 @@ Safe Dependabot separates routine dependency maintenance from deliberate breakin
 
 ## Major-version updates
 
-When `require-major-ignore` is enabled, every update block must include:
+When `require-major-ignore` is enabled, the preferred policy is to allow routine minor and patch version updates explicitly:
 
 ```yaml
-ignore:
+allow:
   - dependency-name: "*"
     update-types:
-      - version-update:semver-major
+      - version-update:semver-minor
+      - version-update:semver-patch
 ```
 
-The intention is not to avoid major upgrades permanently. It is to make them explicit engineering work with migration notes, dedicated tests, and focused review.
+GitHub documents that `allow.update-types` affects version updates only, not security updates. This blocks routine major version-update pull requests while still allowing Dependabot to create a security update when remediation requires a major version.
+
+Legacy wildcard `ignore` rules for `version-update:semver-major` remain accepted in v1 for compatibility, but Safe Dependabot emits a warning because GitHub applies `ignore` filtering to security updates as well.
+
+The intention is not to avoid major upgrades permanently. It is to make routine major upgrades explicit engineering work with migration notes, dedicated tests, and focused review without weakening vulnerability remediation.
 
 !!! warning "Pre-1.0 dependencies"
     Semantic versioning allows breaking changes in minor releases before version 1.0. A `0.4 -> 0.5` update can therefore still be breaking even when it is not classified as semver-major.
