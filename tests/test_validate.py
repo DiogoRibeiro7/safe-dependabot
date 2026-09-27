@@ -363,6 +363,7 @@ def test_grouped_update_can_omit_standalone_pull_request_limit() -> None:
     config["updates"][0].pop("open-pull-requests-limit")
     config["updates"][0]["multi-ecosystem-group"] = "runtime"
     config["updates"][0]["patterns"] = ["*"]
+    config["updates"][1]["open-pull-requests-limit"] = 3
 
     errors, warnings, _ = validator.validate(
         config,
