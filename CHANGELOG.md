@@ -6,6 +6,12 @@ The project follows semantic versioning.
 
 ## Unreleased
 
+## 1.0.1 - 2026-09-27
+
+### Fixed
+
+- Treat exported `requirements*.txt` files beside `uv.lock` as part of the uv-managed project, avoiding false pip ecosystem failures.
+
 ## 1.0.0 - 2026-09-26
 
 ### Added
