@@ -55,7 +55,7 @@ jobs:
 | Input | Default | Purpose |
 | --- | --- | --- |
 | `config-path` | `.github/dependabot.yml` | Dependabot configuration to validate |
-| `max-open-prs` | `5` | Maximum permitted `open-pull-requests-limit` |
+| `max-open-prs` | `5` | Maximum effective open version-update PR limit for standalone blocks |
 | `require-major-ignore` | `true` | Require a guard against routine SemVer-major version updates; security-safe `allow.update-types` is preferred and legacy wildcard `ignore` rules warn |
 | `require-github-actions` | `true` | Require Dependabot coverage for GitHub Actions |
 | `fail-on-broad-groups` | `false` | Turn wildcard dependency-group warnings into failures |
