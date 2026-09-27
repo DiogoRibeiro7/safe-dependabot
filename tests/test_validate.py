@@ -137,6 +137,123 @@ def test_legacy_major_ignore_is_accepted_with_security_warning() -> None:
     assert any("security remediation" in warning for warning in warnings)
 
 
+def test_valid_multi_ecosystem_group_passes() -> None:
+    """Grouped update entries should inherit cadence from a valid top-level group."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {
+        "runtime": {
+            "schedule": {"interval": "weekly"},
+        }
+    }
+    config["updates"][0].pop("schedule")
+    config["updates"][0].pop("open-pull-requests-limit")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+    config["updates"][0]["patterns"] = ["*"]
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any(
+        "updates[1] (pip) does not set open-pull-requests-limit" in warning
+        for warning in warnings
+    )
+
+
+def test_multi_ecosystem_group_reference_must_exist() -> None:
+    """Grouped update entries must reference a defined top-level group."""
+
+    config = safe_config()
+    config["updates"][0].pop("schedule")
+    config["updates"][0]["multi-ecosystem-group"] = "missing"
+    config["updates"][0]["patterns"] = ["*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("undefined multi-ecosystem-group 'missing'" in error for error in errors)
+
+
+def test_multi_ecosystem_group_requires_schedule() -> None:
+    """Top-level groups must define their own schedule."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {"runtime": {}}
+    config["updates"][0].pop("schedule")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+    config["updates"][0]["patterns"] = ["*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "multi-ecosystem-groups.runtime must define a schedule" in error
+        for error in errors
+    )
+
+
+def test_multi_ecosystem_group_schedule_interval_is_validated() -> None:
+    """Top-level group schedules should use supported intervals."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {
+        "runtime": {"schedule": {"interval": "fortnightly"}}
+    }
+    config["updates"][0].pop("schedule")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+    config["updates"][0]["patterns"] = ["*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "unsupported schedule interval 'fortnightly'" in error
+        for error in errors
+    )
+
+
+def test_multi_ecosystem_group_member_requires_patterns() -> None:
+    """Every grouped ecosystem entry must define dependency patterns."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {
+        "runtime": {"schedule": {"interval": "weekly"}}
+    }
+    config["updates"][0].pop("schedule")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("must define a non-empty patterns list" in error for error in errors)
+
+
 def test_pull_request_limit_is_enforced() -> None:
     """Update blocks above the configured PR limit should fail."""
 
