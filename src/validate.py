@@ -10,6 +10,8 @@ from typing import Any, Final
 
 import yaml
 
+PATCH_UPDATE: Final[str] = "version-update:semver-patch"
+MINOR_UPDATE: Final[str] = "version-update:semver-minor"
 MAJOR_UPDATE: Final[str] = "version-update:semver-major"
 ALLOWED_INTERVALS: Final[set[str]] = {
     "daily",
@@ -190,8 +192,33 @@ def detect_ecosystems(root: Path) -> dict[str, list[str]]:
     return detected
 
 
-def has_major_ignore(update: dict[str, Any]) -> bool:
-    """Return whether an update block ignores all semver-major updates."""
+def has_security_safe_major_guard(update: dict[str, Any]) -> bool:
+    """Return whether routine major version updates are blocked without ignore."""
+
+    allows = update.get("allow", [])
+    if not isinstance(allows, list):
+        return False
+
+    for rule in allows:
+        if not isinstance(rule, dict):
+            continue
+        update_types = rule.get("update-types", [])
+        if not isinstance(update_types, list):
+            continue
+
+        allowed = set(update_types)
+        if (
+            rule.get("dependency-name") == "*"
+            and MAJOR_UPDATE not in allowed
+            and bool({PATCH_UPDATE, MINOR_UPDATE} & allowed)
+        ):
+            return True
+
+    return False
+
+
+def has_legacy_major_ignore(update: dict[str, Any]) -> bool:
+    """Return whether an update block uses the legacy wildcard major ignore."""
 
     ignores = update.get("ignore", [])
     if not isinstance(ignores, list):
@@ -319,10 +346,22 @@ def validate(
                 f"{max_open_prs}."
             )
 
-        if require_major_ignore and not has_major_ignore(raw_update):
-            errors.append(
-                f"{label} ({ecosystem}) does not ignore routine semver-major updates."
-            )
+        if require_major_ignore:
+            has_safe_guard = has_security_safe_major_guard(raw_update)
+            has_legacy_ignore = has_legacy_major_ignore(raw_update)
+
+            if not has_safe_guard and not has_legacy_ignore:
+                errors.append(
+                    f"{label} ({ecosystem}) does not restrict routine semver-major "
+                    "version updates."
+                )
+            elif has_legacy_ignore:
+                warnings.append(
+                    f"{label} ({ecosystem}) uses a wildcard semver-major ignore rule; "
+                    "GitHub applies ignore rules to security updates too, so a major "
+                    "security remediation can be suppressed. Prefer allow.update-types "
+                    "with patch/minor version updates."
+                )
 
         for group in broad_group_names(raw_update):
             message = (
