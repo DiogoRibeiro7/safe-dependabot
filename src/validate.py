@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from fnmatch import fnmatchcase
 import json
 import os
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
