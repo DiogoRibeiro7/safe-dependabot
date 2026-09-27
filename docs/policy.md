@@ -25,15 +25,21 @@ The intention is not to avoid major upgrades permanently. It is to make routine 
 
 ## Pull-request limits
 
-Dependabot can generate substantial PR churn in repositories with many dependency groups. The default policy limits `open-pull-requests-limit` to five.
+Dependabot can generate substantial PR churn in repositories with many dependency groups. GitHub's default for standalone version-update blocks is five open pull requests when `open-pull-requests-limit` is omitted.
 
-Repositories can lower this:
+Safe Dependabot validates the **effective** limit. With the default `max-open-prs: 5`, an omitted standalone limit is accepted with a warning because GitHub's effective value is five. If a repository lowers the policy maximum, omission can become an error:
 
 ```yaml
 - uses: DiogoRibeiro7/safe-dependabot@v1
   with:
     max-open-prs: 3
 ```
+
+In that case, standalone update blocks must explicitly set `open-pull-requests-limit` to three or less.
+
+Setting `open-pull-requests-limit: 0` disables version updates for that package ecosystem while leaving security updates enabled. Safe Dependabot therefore does not require a routine major-version guard on a security-only block.
+
+Multi-ecosystem groups are treated separately: GitHub consolidates a group into a single cross-ecosystem pull request, so grouped member entries are not assigned the standalone default-five warning merely because they omit `open-pull-requests-limit`.
 
 ## Broad groups
 
