@@ -266,6 +266,183 @@ def test_uv_lock_owns_exported_requirements_file(tmp_path: Path) -> None:
     ]
 
 
+
+
+def test_uncovered_manifest_directory_fails_validation() -> None:
+    """Every detected manifest directory must have matching coverage."""
+
+    config = safe_config()
+    config["updates"][0]["directory"] = "/apps/api"
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={
+            "pip": [
+                "apps/api/pyproject.toml",
+                "apps/web/pyproject.toml",
+            ]
+        },
+    )
+
+    assert any("/apps/web" in error and "directory/directories" in error for error in errors)
+
+
+def test_directories_glob_covers_monorepo_manifests() -> None:
+    """The directories key should support anchored wildcard coverage."""
+
+    config = safe_config()
+    config["updates"][0].pop("directory")
+    config["updates"][0]["directories"] = ["/apps/*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={
+            "pip": [
+                "apps/api/pyproject.toml",
+                "apps/web/pyproject.toml",
+            ]
+        },
+    )
+
+    assert errors == []
+
+
+def test_recursive_directories_glob_covers_root_and_nested_manifests() -> None:
+    """GitHub's **/* directory glob should cover current and nested directories."""
+
+    config = safe_config()
+    config["updates"][0].pop("directory")
+    config["updates"][0]["directories"] = ["**/*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={
+            "pip": [
+                "pyproject.toml",
+                "apps/api/pyproject.toml",
+                "apps/api/internal/requirements.txt",
+            ]
+        },
+    )
+
+    assert errors == []
+
+
+def test_overlapping_blocks_for_same_target_branch_fail() -> None:
+    """Two blocks must not cover the same manifest directory on one target branch."""
+
+    config = safe_config()
+    config["updates"][0]["directory"] = "/apps/api"
+    config["updates"].insert(
+        1,
+        {
+            "package-ecosystem": "pip",
+            "directories": ["/apps/*"],
+            "schedule": {"interval": "weekly"},
+            "open-pull-requests-limit": 5,
+            "allow": [
+                {
+                    "dependency-name": "*",
+                    "update-types": [
+                        "version-update:semver-minor",
+                        "version-update:semver-patch",
+                    ],
+                }
+            ],
+        },
+    )
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"pip": ["apps/api/pyproject.toml"]},
+        current_branch="main",
+        default_branch="main",
+    )
+
+    assert any(
+        "overlapping pip coverage" in error
+        and "updates[1]" in error
+        and "updates[2]" in error
+        for error in errors
+    )
+
+
+def test_target_branch_block_does_not_cover_default_branch_checkout() -> None:
+    """Coverage for another target branch must not satisfy the current checkout."""
+
+    config = safe_config()
+    config["updates"][0]["directory"] = "/apps/api"
+    config["updates"][0]["target-branch"] = "develop"
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"pip": ["apps/api/pyproject.toml"]},
+        current_branch="main",
+        default_branch="main",
+    )
+
+    assert any("branch 'main'" in error and "/apps/api" in error for error in errors)
+
+
+def test_target_branch_block_covers_matching_checkout() -> None:
+    """Explicit target-branch coverage should apply on that branch checkout."""
+
+    config = safe_config()
+    config["updates"][0]["directory"] = "/apps/api"
+    config["updates"][0]["target-branch"] = "develop"
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"pip": ["apps/api/pyproject.toml"]},
+        current_branch="develop",
+        default_branch="main",
+    )
+
+    assert errors == []
+
+
+def test_excluded_manifest_does_not_count_as_covered() -> None:
+    """An excluded detected manifest should not satisfy directory coverage."""
+
+    config = safe_config()
+    config["updates"][0]["exclude-paths"] = ["pyproject.toml"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+        detected_ecosystems={"pip": ["pyproject.toml"]},
+    )
+
+    assert any("no matching Dependabot" in error for error in errors)
+
+
 def test_missing_detected_ecosystem_fails_validation() -> None:
     """Detected manifests must have corresponding Dependabot coverage."""
 
