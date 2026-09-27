@@ -36,10 +36,13 @@ def safe_config() -> dict[str, Any]:
                 "directory": "/",
                 "schedule": {"interval": "weekly"},
                 "open-pull-requests-limit": 5,
-                "ignore": [
+                "allow": [
                     {
                         "dependency-name": "*",
-                        "update-types": ["version-update:semver-major"],
+                        "update-types": [
+                            "version-update:semver-minor",
+                            "version-update:semver-patch",
+                        ],
                     }
                 ],
             },
@@ -48,10 +51,13 @@ def safe_config() -> dict[str, Any]:
                 "directory": "/",
                 "schedule": {"interval": "weekly"},
                 "open-pull-requests-limit": 5,
-                "ignore": [
+                "allow": [
                     {
                         "dependency-name": "*",
-                        "update-types": ["version-update:semver-major"],
+                        "update-types": [
+                            "version-update:semver-minor",
+                            "version-update:semver-patch",
+                        ],
                     }
                 ],
             },
@@ -75,11 +81,11 @@ def test_safe_configuration_passes() -> None:
     assert count == 2
 
 
-def test_major_updates_are_rejected_when_not_ignored() -> None:
-    """Missing semver-major ignore rules should fail policy validation."""
+def test_major_updates_are_rejected_without_version_guard() -> None:
+    """Missing semver-major version guards should fail policy validation."""
 
     config = safe_config()
-    config["updates"][0]["ignore"] = []
+    config["updates"][0]["allow"] = []
 
     errors, _, _ = validator.validate(
         config,
@@ -90,6 +96,45 @@ def test_major_updates_are_rejected_when_not_ignored() -> None:
     )
 
     assert any("semver-major" in error for error in errors)
+
+
+def test_security_safe_allow_guard_passes_without_warning() -> None:
+    """Minor/patch allow rules should guard majors without touching security updates."""
+
+    errors, warnings, _ = validator.validate(
+        safe_config(),
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("security remediation" in warning for warning in warnings)
+
+
+def test_legacy_major_ignore_is_accepted_with_security_warning() -> None:
+    """Legacy wildcard major ignores remain compatible but should warn."""
+
+    config = safe_config()
+    config["updates"][0].pop("allow")
+    config["updates"][0]["ignore"] = [
+        {
+            "dependency-name": "*",
+            "update-types": ["version-update:semver-major"],
+        }
+    ]
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert any("security remediation" in warning for warning in warnings)
 
 
 def test_pull_request_limit_is_enforced() -> None:
