@@ -7,8 +7,8 @@ Safe Dependabot exposes a small set of inputs so repositories can tighten or rel
 | Input | Default | Description |
 | --- | --- | --- |
 | `config-path` | `.github/dependabot.yml` | Path to the Dependabot configuration file. |
-| `max-open-prs` | `5` | Maximum permitted value of `open-pull-requests-limit`. |
-| `require-major-ignore` | `true` | Require a wildcard rule ignoring `version-update:semver-major`. |
+| `max-open-prs` | `5` | Maximum effective open version-update PR limit for standalone update blocks. |
+| `require-major-ignore` | `true` | Require routine SemVer-major version updates to be restricted unless version updates are disabled with `open-pull-requests-limit: 0`. |
 | `require-github-actions` | `true` | Require a `github-actions` update block. |
 | `fail-on-broad-groups` | `false` | Treat groups matching every dependency as errors instead of warnings. |
 | `detect-ecosystems` | `true` | Detect manifests and require matching Dependabot ecosystems. |

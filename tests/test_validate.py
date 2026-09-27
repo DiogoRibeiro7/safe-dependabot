@@ -254,6 +254,129 @@ def test_multi_ecosystem_group_member_requires_patterns() -> None:
     assert any("must define a non-empty patterns list" in error for error in errors)
 
 
+def test_omitted_pull_request_limit_uses_github_default() -> None:
+    """Omitted standalone limits should model GitHub's default of five."""
+
+    config = safe_config()
+    config["updates"][0].pop("open-pull-requests-limit")
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert any("GitHub's default of 5 applies" in warning for warning in warnings)
+
+
+def test_omitted_pull_request_limit_can_exceed_policy_maximum() -> None:
+    """A stricter policy must reject the effective GitHub default."""
+
+    config = safe_config()
+    config["updates"][0].pop("open-pull-requests-limit")
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=3,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "GitHub's default of 5 exceeds the policy maximum of 3" in error
+        for error in errors
+    )
+
+
+def test_zero_pull_request_limit_disables_version_updates() -> None:
+    """Security-only blocks should not need a routine major-version guard."""
+
+    config = safe_config()
+    config["updates"][0]["open-pull-requests-limit"] = 0
+    config["updates"][0].pop("allow")
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+
+
+def test_zero_limit_still_warns_about_legacy_security_ignore() -> None:
+    """A legacy ignore remains risky even when version updates are disabled."""
+
+    config = safe_config()
+    config["updates"][0]["open-pull-requests-limit"] = 0
+    config["updates"][0].pop("allow")
+    config["updates"][0]["ignore"] = [
+        {
+            "dependency-name": "*",
+            "update-types": ["version-update:semver-major"],
+        }
+    ]
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert any("security remediation" in warning for warning in warnings)
+
+
+def test_negative_pull_request_limit_is_rejected() -> None:
+    """Negative limits are not valid Dependabot behavior."""
+
+    config = safe_config()
+    config["updates"][0]["open-pull-requests-limit"] = -1
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("must be zero or greater" in error for error in errors)
+
+
+def test_grouped_update_can_omit_standalone_pull_request_limit() -> None:
+    """Grouped members should not inherit the standalone default-five warning."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {
+        "runtime": {"schedule": {"interval": "weekly"}}
+    }
+    config["updates"][0].pop("schedule")
+    config["updates"][0].pop("open-pull-requests-limit")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+    config["updates"][0]["patterns"] = ["*"]
+    config["updates"][1]["open-pull-requests-limit"] = 3
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=3,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("GitHub's default of 5" in warning for warning in warnings)
+
+
 def test_pull_request_limit_is_enforced() -> None:
     """Update blocks above the configured PR limit should fail."""
 

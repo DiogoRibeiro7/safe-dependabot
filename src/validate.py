@@ -15,6 +15,7 @@ import yaml
 PATCH_UPDATE: Final[str] = "version-update:semver-patch"
 MINOR_UPDATE: Final[str] = "version-update:semver-minor"
 MAJOR_UPDATE: Final[str] = "version-update:semver-major"
+DEFAULT_OPEN_PULL_REQUESTS_LIMIT: Final[int] = 5
 ALLOWED_INTERVALS: Final[set[str]] = {
     "daily",
     "weekly",
@@ -707,32 +708,56 @@ def validate(
                 )
             )
 
+        grouped_update = "multi-ecosystem-group" in raw_update
         limit = raw_update.get("open-pull-requests-limit")
+        version_updates_disabled = False
+
         if limit is None:
-            if "multi-ecosystem-group" not in raw_update:
-                warnings.append(
-                    f"{label} ({ecosystem}) does not set open-pull-requests-limit."
-                )
+            if not grouped_update:
+                if DEFAULT_OPEN_PULL_REQUESTS_LIMIT > max_open_prs:
+                    errors.append(
+                        f"{label} ({ecosystem}) omits open-pull-requests-limit; "
+                        f"GitHub's default of {DEFAULT_OPEN_PULL_REQUESTS_LIMIT} "
+                        f"exceeds the policy maximum of {max_open_prs}."
+                    )
+                else:
+                    warnings.append(
+                        f"{label} ({ecosystem}) does not set "
+                        "open-pull-requests-limit; GitHub's default of "
+                        f"{DEFAULT_OPEN_PULL_REQUESTS_LIMIT} applies."
+                    )
         elif not isinstance(limit, int) or isinstance(limit, bool):
             errors.append(
                 f"{label} ({ecosystem}) open-pull-requests-limit must be an integer."
+            )
+        elif limit < 0:
+            errors.append(
+                f"{label} ({ecosystem}) open-pull-requests-limit must be zero "
+                "or greater."
             )
         elif limit > max_open_prs:
             errors.append(
                 f"{label} ({ecosystem}) allows {limit} open PRs; policy maximum is "
                 f"{max_open_prs}."
             )
+        else:
+            version_updates_disabled = limit == 0
 
         if require_major_ignore:
             has_safe_guard = has_security_safe_major_guard(raw_update)
             has_legacy_ignore = has_legacy_major_ignore(raw_update)
 
-            if not has_safe_guard and not has_legacy_ignore:
+            if (
+                not version_updates_disabled
+                and not has_safe_guard
+                and not has_legacy_ignore
+            ):
                 errors.append(
                     f"{label} ({ecosystem}) does not restrict routine semver-major "
                     "version updates."
                 )
-            elif has_legacy_ignore:
+
+            if has_legacy_ignore:
                 warnings.append(
                     f"{label} ({ecosystem}) uses a wildcard semver-major ignore rule; "
                     "GitHub applies ignore rules to security updates too, so a major "
