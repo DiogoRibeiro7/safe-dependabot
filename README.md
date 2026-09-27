@@ -10,7 +10,7 @@ The default policy is intentionally simple:
 - require a GitHub Actions update block;
 - require routine semantic-versioning major version updates to be blocked without suppressing security remediation;
 - allow at most five open Dependabot pull requests per update block;
-- detect dependency manifests and require matching Dependabot ecosystems;
+- detect dependency manifests and require matching Dependabot ecosystem **and manifest-directory** coverage;
 - warn when a dependency group matches every dependency, because broad groups can make CI failures harder to isolate.
 
 ## Usage
@@ -58,7 +58,7 @@ jobs:
 | `require-major-ignore` | `true` | Require a guard against routine SemVer-major version updates; security-safe `allow.update-types` is preferred and legacy wildcard `ignore` rules warn |
 | `require-github-actions` | `true` | Require Dependabot coverage for GitHub Actions |
 | `fail-on-broad-groups` | `false` | Turn wildcard dependency-group warnings into failures |
-| `detect-ecosystems` | `true` | Detect repository manifests and require matching Dependabot ecosystems |
+| `detect-ecosystems` | `true` | Detect repository manifests and require matching ecosystem and directory/directories coverage |
 
 The action exposes `update-blocks`, the number of Dependabot update blocks that were validated, and `detected-ecosystems`, a comma-separated list of ecosystems found from repository manifests.
 
@@ -87,6 +87,8 @@ Safe Dependabot detects common dependency manifests and checks that Dependabot c
 | `.pre-commit-config.yaml` | `pre-commit` |
 
 Generated dependency directories such as `node_modules`, `vendor`, `target`, virtual environments, and build output are ignored.
+
+For monorepos, coverage is checked per manifest directory rather than only per ecosystem. The validator understands exact `directory` entries, glob-capable `directories`, explicit `target-branch` scoping, and reports overlapping blocks for the same ecosystem/target branch when they cover the same detected manifest location.
 
 ## Recommended Dependabot baseline
 

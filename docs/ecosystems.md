@@ -53,4 +53,19 @@ This prevents vendored or generated dependency files from creating false policy 
 
 Detection is recursive. If a repository contains both `Cargo.toml` and `package.json`, Safe Dependabot expects both `cargo` and `npm` coverage in `.github/dependabot.yml`.
 
-The action currently checks **ecosystem coverage**, not whether every manifest directory has a dedicated update block. Directory-level coverage can be added as a stricter future policy.
+Coverage is validated at the **manifest-directory level**. A repository with `/apps/api/package.json` and `/apps/web/package.json` will therefore fail if Dependabot covers only `/apps/api`.
+
+Use `directories` when one ecosystem appears in several locations:
+
+```yaml
+updates:
+  - package-ecosystem: npm
+    directories:
+      - "/apps/*"
+    schedule:
+      interval: weekly
+```
+
+Safe Dependabot treats `directory` as one exact manifest location and supports globbing only for `directories`, matching GitHub's configuration semantics. It also scopes coverage by `target-branch` when the checked-out branch and repository default branch are available from the GitHub Actions event.
+
+If multiple blocks for the same ecosystem and effective target branch cover the same detected manifest directory, validation fails because GitHub requires those locations to be unique and non-overlapping.

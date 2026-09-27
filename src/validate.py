@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
-from pathlib import Path
+from fnmatch import fnmatchcase
+from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
 import yaml
@@ -76,6 +78,34 @@ def repository_root() -> Path:
     if workspace:
         return Path(workspace).resolve()
     return Path.cwd().resolve()
+
+
+def current_checkout_branch() -> str | None:
+    """Return the branch whose manifests are present in the checkout."""
+
+    return os.getenv("GITHUB_BASE_REF") or os.getenv("GITHUB_REF_NAME") or None
+
+
+def repository_default_branch() -> str | None:
+    """Return the repository default branch from the GitHub event payload."""
+
+    event_path = os.getenv("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+
+    try:
+        payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    repository = payload.get("repository")
+    if not isinstance(repository, dict):
+        return None
+
+    default_branch = repository.get("default_branch")
+    if isinstance(default_branch, str) and default_branch.strip():
+        return default_branch.strip()
+    return None
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -254,25 +284,274 @@ def broad_group_names(update: dict[str, Any]) -> list[str]:
     return broad
 
 
+def normalize_directory(value: str) -> str:
+    """Normalize a Dependabot manifest directory or directory glob."""
+
+    normalized = value.strip().replace("\\", "/")
+    if normalized in {"", ".", "/"}:
+        return "/"
+    return f"/{normalized.strip('/')}"
+
+
+def manifest_directory(manifest: str) -> str:
+    """Return the normalized repository directory containing a manifest."""
+
+    parent = PurePosixPath(manifest).parent.as_posix()
+    if parent == ".":
+        return "/"
+    return normalize_directory(parent)
+
+
+def _match_directory_segments(
+    pattern_segments: tuple[str, ...],
+    path_segments: tuple[str, ...],
+) -> bool:
+    """Match an anchored directory glob with support for globstar."""
+
+    if not pattern_segments:
+        return not path_segments
+
+    head = pattern_segments[0]
+    tail = pattern_segments[1:]
+
+    if head == "**":
+        return _match_directory_segments(tail, path_segments) or (
+            bool(path_segments)
+            and _match_directory_segments(pattern_segments, path_segments[1:])
+        )
+
+    if not path_segments or not fnmatchcase(path_segments[0], head):
+        return False
+
+    return _match_directory_segments(tail, path_segments[1:])
+
+
+def directory_pattern_matches(pattern: str, directory: str) -> bool:
+    """Return whether a Dependabot directories glob covers a directory."""
+
+    normalized_pattern = normalize_directory(pattern).lstrip("/")
+    normalized_directory = normalize_directory(directory).lstrip("/")
+
+    # GitHub documents **/* as covering the current directory and recursive
+    # subdirectories, so include the repository root as well.
+    if normalized_pattern in {"**", "**/*"}:
+        return True
+
+    pattern_segments = tuple(
+        segment for segment in normalized_pattern.split("/") if segment
+    )
+    path_segments = tuple(
+        segment for segment in normalized_directory.split("/") if segment
+    )
+    return _match_directory_segments(pattern_segments, path_segments)
+
+
+def path_pattern_matches(pattern: str, relative_path: str) -> bool:
+    """Match an exclude-paths glob against a path relative to its update directory."""
+
+    normalized_pattern = pattern.strip().replace("\\", "/").lstrip("/")
+    normalized_path = relative_path.strip().replace("\\", "/").lstrip("/")
+
+    if "/" not in normalized_pattern:
+        return fnmatchcase(PurePosixPath(normalized_path).name, normalized_pattern)
+
+    pattern_segments = tuple(
+        segment for segment in normalized_pattern.split("/") if segment
+    )
+    path_segments = tuple(
+        segment for segment in normalized_path.split("/") if segment
+    )
+    return _match_directory_segments(pattern_segments, path_segments)
+
+
+def update_location_patterns(update: dict[str, Any]) -> list[tuple[str, bool]]:
+    """Return configured locations as (pattern, supports_globbing) pairs."""
+
+    locations: list[tuple[str, bool]] = []
+
+    directory = update.get("directory")
+    if isinstance(directory, str) and directory.strip():
+        locations.append((normalize_directory(directory), False))
+
+    directories = update.get("directories")
+    if isinstance(directories, list):
+        for value in directories:
+            if isinstance(value, str) and value.strip():
+                locations.append((normalize_directory(value), True))
+
+    return locations
+
+
+def update_covers_manifest(update: dict[str, Any], manifest: str) -> bool:
+    """Return whether an update block covers one detected manifest."""
+
+    directory = manifest_directory(manifest)
+
+    matched = False
+    for location, supports_globbing in update_location_patterns(update):
+        if supports_globbing:
+            if directory_pattern_matches(location, directory):
+                matched = True
+                break
+        elif location == directory:
+            matched = True
+            break
+
+    if not matched:
+        return False
+
+    excludes = update.get("exclude-paths", [])
+    if not isinstance(excludes, list):
+        return True
+
+    # Directory coverage is exact at this point. For the detected manifest
+    # itself, exclude-paths are evaluated relative to that concrete manifest
+    # directory, so a filename pattern such as *.lock can exclude the file.
+    relative_path = PurePosixPath(manifest).name
+    for pattern in excludes:
+        if isinstance(pattern, str) and path_pattern_matches(pattern, relative_path):
+            return False
+
+    return True
+
+
+def effective_target_branch(
+    update: dict[str, Any],
+    default_branch: str | None,
+) -> str | None:
+    """Return the branch an update block targets for version updates."""
+
+    target = update.get("target-branch")
+    if isinstance(target, str) and target.strip():
+        return target.strip()
+    return default_branch
+
+
+def update_applies_to_checkout(
+    update: dict[str, Any],
+    *,
+    current_branch: str | None,
+    default_branch: str | None,
+) -> bool:
+    """Return whether an update block applies to the checked-out manifests."""
+
+    target = update.get("target-branch")
+    if isinstance(target, str) and target.strip():
+        return current_branch is not None and target.strip() == current_branch
+
+    if current_branch is not None and default_branch is not None:
+        return current_branch == default_branch
+
+    # Outside GitHub Actions the default branch may be unknowable. Preserve
+    # useful local validation by treating unscoped blocks as default coverage.
+    return True
+
+
 def validate_detected_ecosystems(
-    configured_ecosystems: set[str],
+    updates: list[Any],
     detected_ecosystems: dict[str, list[str]],
+    *,
+    current_branch: str | None = None,
+    default_branch: str | None = None,
 ) -> list[str]:
-    """Return errors for detected ecosystems missing from Dependabot."""
+    """Return errors for detected manifests lacking directory-level coverage."""
 
     errors: list[str] = []
+    blocks_by_ecosystem: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+
+    for index, raw_update in enumerate(updates, start=1):
+        if not isinstance(raw_update, dict):
+            continue
+        ecosystem = raw_update.get("package-ecosystem")
+        if isinstance(ecosystem, str) and ecosystem.strip():
+            blocks_by_ecosystem.setdefault(ecosystem, []).append((index, raw_update))
+
     for ecosystem, manifests in sorted(detected_ecosystems.items()):
-        if ecosystem in configured_ecosystems:
+        blocks = blocks_by_ecosystem.get(ecosystem, [])
+        if not blocks:
+            examples = ", ".join(manifests[:3])
+            if len(manifests) > 3:
+                examples += f", +{len(manifests) - 3} more"
+            errors.append(
+                f"Detected {ecosystem} manifest(s) ({examples}) but no matching "
+                "Dependabot update block is configured."
+            )
             continue
 
-        examples = ", ".join(manifests[:3])
-        if len(manifests) > 3:
-            examples += f", +{len(manifests) - 3} more"
+        manifests_by_directory: dict[str, list[str]] = {}
+        for manifest in manifests:
+            manifests_by_directory.setdefault(manifest_directory(manifest), []).append(
+                manifest
+            )
 
-        errors.append(
-            f"Detected {ecosystem} manifest(s) ({examples}) but no matching "
-            "Dependabot update block is configured."
-        )
+        applicable_blocks = [
+            (index, update)
+            for index, update in blocks
+            if update_applies_to_checkout(
+                update,
+                current_branch=current_branch,
+                default_branch=default_branch,
+            )
+        ]
+
+        for directory, directory_manifests in sorted(manifests_by_directory.items()):
+            covered_by = [
+                index
+                for index, update in applicable_blocks
+                if any(
+                    update_covers_manifest(update, manifest)
+                    for manifest in directory_manifests
+                )
+            ]
+
+            if not covered_by:
+                branch_detail = (
+                    f" on branch {current_branch!r}" if current_branch else ""
+                )
+                examples = ", ".join(sorted(directory_manifests)[:3])
+                errors.append(
+                    f"Detected {ecosystem} manifest directory {directory} "
+                    f"({examples}){branch_detail}, but no matching Dependabot "
+                    "directory/directories entry covers it."
+                )
+
+        # GitHub requires multiple blocks for one ecosystem and target branch
+        # to use unique, non-overlapping manifest locations. Evaluate overlap
+        # against directories that actually contain detected manifests.
+        scopes: dict[str | None, list[tuple[int, dict[str, Any]]]] = {}
+        for index, update in blocks:
+            scopes.setdefault(
+                effective_target_branch(update, default_branch),
+                [],
+            ).append((index, update))
+
+        for target_branch, scoped_blocks in scopes.items():
+            if len(scoped_blocks) < 2:
+                continue
+            for directory, directory_manifests in sorted(
+                manifests_by_directory.items()
+            ):
+                matching = [
+                    index
+                    for index, update in scoped_blocks
+                    if any(
+                        update_covers_manifest(update, manifest)
+                        for manifest in directory_manifests
+                    )
+                ]
+                if len(matching) <= 1:
+                    continue
+
+                scope = (
+                    f"target branch {target_branch!r}"
+                    if target_branch is not None
+                    else "the default target branch"
+                )
+                labels = ", ".join(f"updates[{index}]" for index in matching)
+                errors.append(
+                    f"Detected overlapping {ecosystem} coverage for {directory} "
+                    f"on {scope}: {labels}."
+                )
 
     return errors
 
@@ -285,6 +564,8 @@ def validate(
     require_github_actions: bool,
     fail_on_broad_groups: bool,
     detected_ecosystems: dict[str, list[str]] | None = None,
+    current_branch: str | None = None,
+    default_branch: str | None = None,
 ) -> tuple[list[str], list[str], int]:
     """Validate configuration and return errors, warnings, and block count."""
 
@@ -379,8 +660,10 @@ def validate(
     if detected_ecosystems is not None:
         errors.extend(
             validate_detected_ecosystems(
-                configured_ecosystems,
+                updates,
                 detected_ecosystems,
+                current_branch=current_branch,
+                default_branch=default_branch,
             )
         )
 
@@ -434,6 +717,8 @@ def main() -> int:
             require_github_actions=parse_bool(args.require_github_actions),
             fail_on_broad_groups=parse_bool(args.fail_on_broad_groups),
             detected_ecosystems=detected,
+            current_branch=current_checkout_branch(),
+            default_branch=repository_default_branch(),
         )
     except PolicyError as exc:
         annotate("error", str(exc))

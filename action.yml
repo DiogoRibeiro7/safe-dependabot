@@ -27,7 +27,7 @@ inputs:
     required: false
     default: "false"
   detect-ecosystems:
-    description: "Detect dependency manifests and require matching Dependabot ecosystems."
+    description: "Detect dependency manifests and require matching Dependabot ecosystem and directory coverage."
     required: false
     default: "true"
 
