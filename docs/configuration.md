@@ -47,3 +47,40 @@ For unusual monorepos or generated manifests, automatic detection can be disable
 ```
 
 The rest of the Dependabot policy validation still runs.
+
+
+## Multi-ecosystem groups
+
+Safe Dependabot validates GitHub's multi-ecosystem group structure.
+
+A valid group defines its schedule at the top level, while each participating update entry references the group and provides dependency `patterns`:
+
+```yaml
+version: 2
+
+multi-ecosystem-groups:
+  runtime:
+    schedule:
+      interval: weekly
+
+updates:
+  - package-ecosystem: docker
+    directory: /
+    multi-ecosystem-group: runtime
+    patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /
+    multi-ecosystem-group: runtime
+    patterns: ["*"]
+```
+
+Safe Dependabot checks that:
+
+- each referenced group exists;
+- each top-level group is a mapping with a valid schedule;
+- each grouped update entry defines a non-empty `patterns` list;
+- grouped entries are not incorrectly required to duplicate the group schedule;
+- grouped entries do not receive a standalone missing-`open-pull-requests-limit` warning.
+
+Other per-ecosystem policy rules still apply to grouped update entries.
