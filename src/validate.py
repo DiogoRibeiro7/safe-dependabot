@@ -267,6 +267,99 @@ def has_legacy_major_ignore(update: dict[str, Any]) -> bool:
     return False
 
 
+def validate_schedule(
+    schedule: Any,
+    *,
+    label: str,
+) -> list[str]:
+    """Validate a Dependabot schedule mapping."""
+
+    errors: list[str] = []
+    if not isinstance(schedule, dict):
+        errors.append(f"{label} must define a schedule.")
+        return errors
+
+    interval = schedule.get("interval")
+    if interval not in ALLOWED_INTERVALS:
+        errors.append(
+            f"{label} uses unsupported schedule interval {interval!r}."
+        )
+
+    return errors
+
+
+def validate_multi_ecosystem_groups(
+    config: dict[str, Any],
+    updates: list[Any],
+) -> tuple[list[str], set[str]]:
+    """Validate top-level multi-ecosystem groups and grouped update references."""
+
+    errors: list[str] = []
+    raw_groups = config.get("multi-ecosystem-groups", {})
+
+    if raw_groups is None:
+        raw_groups = {}
+
+    if not isinstance(raw_groups, dict):
+        errors.append("multi-ecosystem-groups must be a mapping.")
+        raw_groups = {}
+
+    defined_groups: set[str] = set()
+
+    for group_name, raw_group in raw_groups.items():
+        label = f"multi-ecosystem-groups.{group_name}"
+        if not isinstance(group_name, str) or not group_name.strip():
+            errors.append("multi-ecosystem-groups keys must be non-empty strings.")
+            continue
+
+        defined_groups.add(group_name)
+
+        if not isinstance(raw_group, dict):
+            errors.append(f"{label} must be a mapping.")
+            continue
+
+        errors.extend(
+            validate_schedule(
+                raw_group.get("schedule"),
+                label=label,
+            )
+        )
+
+    referenced_groups: set[str] = set()
+
+    for index, raw_update in enumerate(updates, start=1):
+        if not isinstance(raw_update, dict):
+            continue
+
+        group_name = raw_update.get("multi-ecosystem-group")
+        if group_name is None:
+            continue
+
+        label = f"updates[{index}]"
+        if not isinstance(group_name, str) or not group_name.strip():
+            errors.append(f"{label} multi-ecosystem-group must be a non-empty string.")
+            continue
+
+        referenced_groups.add(group_name)
+
+        if group_name not in defined_groups:
+            errors.append(
+                f"{label} references undefined multi-ecosystem-group {group_name!r}."
+            )
+
+        patterns = raw_update.get("patterns")
+        if (
+            not isinstance(patterns, list)
+            or not patterns
+            or not all(isinstance(pattern, str) and pattern.strip() for pattern in patterns)
+        ):
+            errors.append(
+                f"{label} ({group_name}) must define a non-empty patterns list."
+            )
+
+    return errors, referenced_groups
+
+
 def broad_group_names(update: dict[str, Any]) -> list[str]:
     """Return dependency groups that match every dependency."""
 
@@ -581,6 +674,8 @@ def validate(
         return errors, warnings, 0
 
     configured_ecosystems: set[str] = set()
+    group_errors, _ = validate_multi_ecosystem_groups(config, updates)
+    errors.extend(group_errors)
 
     for index, raw_update in enumerate(updates, start=1):
         label = f"updates[{index}]"
@@ -601,19 +696,16 @@ def validate(
                 f"{label} ({ecosystem}) must define directory or directories."
             )
 
-        schedule = raw_update.get("schedule")
-        if isinstance(schedule, dict):
-            interval = schedule.get("interval")
-            if interval not in ALLOWED_INTERVALS:
-                errors.append(
-                    f"{label} ({ecosystem}) uses unsupported schedule "
-                    f"interval {interval!r}."
+        if "multi-ecosystem-group" not in raw_update:
+            errors.extend(
+                validate_schedule(
+                    raw_update.get("schedule"),
+                    label=f"{label} ({ecosystem})",
                 )
-        elif "multi-ecosystem-group" not in raw_update:
-            errors.append(f"{label} ({ecosystem}) must define a schedule.")
+            )
 
         limit = raw_update.get("open-pull-requests-limit")
-        if limit is None:
+        if limit is None and "multi-ecosystem-group" not in raw_update:
             warnings.append(
                 f"{label} ({ecosystem}) does not set open-pull-requests-limit."
             )
