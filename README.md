@@ -8,7 +8,7 @@ The default policy is intentionally simple:
 
 - require Dependabot configuration version 2;
 - require a GitHub Actions update block;
-- require routine semantic-versioning major updates to be ignored;
+- require routine semantic-versioning major version updates to be blocked without suppressing security remediation;
 - allow at most five open Dependabot pull requests per update block;
 - detect dependency manifests and require matching Dependabot ecosystems;
 - warn when a dependency group matches every dependency, because broad groups can make CI failures harder to isolate.
@@ -55,7 +55,7 @@ jobs:
 | --- | --- | --- |
 | `config-path` | `.github/dependabot.yml` | Dependabot configuration to validate |
 | `max-open-prs` | `5` | Maximum permitted `open-pull-requests-limit` |
-| `require-major-ignore` | `true` | Require a wildcard rule that ignores `version-update:semver-major` |
+| `require-major-ignore` | `true` | Require a guard against routine SemVer-major version updates; security-safe `allow.update-types` is preferred and legacy wildcard `ignore` rules warn |
 | `require-github-actions` | `true` | Require Dependabot coverage for GitHub Actions |
 | `fail-on-broad-groups` | `false` | Turn wildcard dependency-group warnings into failures |
 | `detect-ecosystems` | `true` | Detect repository manifests and require matching Dependabot ecosystems |
@@ -99,23 +99,25 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
         update-types:
-          - version-update:semver-major
+          - version-update:semver-minor
+          - version-update:semver-patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
+    allow:
       - dependency-name: "*"
         update-types:
-          - version-update:semver-major
+          - version-update:semver-minor
+          - version-update:semver-patch
 ```
 
-Security updates remain a separate Dependabot capability. This action validates the repository configuration; it does not merge, approve, or modify dependency pull requests.
+GitHub documents that `allow.update-types` affects version updates only, so the recommended minor/patch allow rule does not suppress security updates. Legacy wildcard major `ignore` rules remain accepted for v1 compatibility but produce a warning because `ignore` can also filter security updates. This action validates configuration; it does not merge, approve, or modify dependency pull requests.
 
 ## Local development
 
