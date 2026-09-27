@@ -708,10 +708,11 @@ def validate(
             )
 
         limit = raw_update.get("open-pull-requests-limit")
-        if limit is None and "multi-ecosystem-group" not in raw_update:
-            warnings.append(
-                f"{label} ({ecosystem}) does not set open-pull-requests-limit."
-            )
+        if limit is None:
+            if "multi-ecosystem-group" not in raw_update:
+                warnings.append(
+                    f"{label} ({ecosystem}) does not set open-pull-requests-limit."
+                )
         elif not isinstance(limit, int) or isinstance(limit, bool):
             errors.append(
                 f"{label} ({ecosystem}) open-pull-requests-limit must be an integer."
