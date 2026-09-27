@@ -288,7 +288,10 @@ def test_uncovered_manifest_directory_fails_validation() -> None:
         },
     )
 
-    assert any("/apps/web" in error and "directory/directories" in error for error in errors)
+    assert any(
+        "/apps/web" in error and "directory/directories" in error
+        for error in errors
+    )
 
 
 def test_directories_glob_covers_monorepo_manifests() -> None:
