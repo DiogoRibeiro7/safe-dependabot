@@ -202,7 +202,10 @@ def test_multi_ecosystem_group_requires_schedule() -> None:
         fail_on_broad_groups=False,
     )
 
-    assert any("multi-ecosystem-groups.runtime must define a schedule" in error for error in errors)
+    assert any(
+        "multi-ecosystem-groups.runtime must define a schedule" in error
+        for error in errors
+    )
 
 
 def test_multi_ecosystem_group_schedule_interval_is_validated() -> None:
@@ -224,7 +227,10 @@ def test_multi_ecosystem_group_schedule_interval_is_validated() -> None:
         fail_on_broad_groups=False,
     )
 
-    assert any("unsupported schedule interval 'fortnightly'" in error for error in errors)
+    assert any(
+        "unsupported schedule interval 'fortnightly'" in error
+        for error in errors
+    )
 
 
 def test_multi_ecosystem_group_member_requires_patterns() -> None:
