@@ -15,7 +15,7 @@ inputs:
     required: false
     default: "5"
   require-major-ignore:
-    description: "Require routine semver-major updates to be ignored."
+    description: "Require routine semver-major version updates to be blocked; security-safe allow rules are preferred."
     required: false
     default: "true"
   require-github-actions:
