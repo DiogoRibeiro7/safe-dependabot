@@ -198,6 +198,29 @@ def test_uv_lock_selects_uv_ecosystem(tmp_path: Path) -> None:
     assert set(detected) == {"uv"}
 
 
+def test_uv_lock_owns_exported_requirements_file(tmp_path: Path) -> None:
+    """A requirements export beside uv.lock should not create a pip ecosystem."""
+
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='demo'\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text(
+        "# Generated from uv.lock. Do not edit.\nexample==1.0\n",
+        encoding="utf-8",
+    )
+
+    detected = validator.detect_ecosystems(tmp_path)
+
+    assert set(detected) == {"uv"}
+    assert sorted(detected["uv"]) == [
+        "pyproject.toml",
+        "requirements.txt",
+        "uv.lock",
+    ]
+
+
 def test_missing_detected_ecosystem_fails_validation() -> None:
     """Detected manifests must have corresponding Dependabot coverage."""
 
