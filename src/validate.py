@@ -106,7 +106,11 @@ def manifest_ecosystem(path: Path) -> str | None:
     if name == "pyproject.toml":
         return "uv" if (path.parent / "uv.lock").is_file() else "pip"
     if name.startswith("requirements") and suffix == ".txt":
-        return "pip"
+        # uv projects often export a requirements.txt for environments that
+        # cannot consume uv.lock directly. When both files live in the same
+        # project directory, uv.lock is the authoritative dependency source
+        # and Dependabot should manage the project through the uv ecosystem.
+        return "uv" if (path.parent / "uv.lock").is_file() else "pip"
 
     if name == "Cargo.toml":
         return "cargo"
