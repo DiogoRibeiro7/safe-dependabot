@@ -10,6 +10,7 @@ import sys
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
@@ -65,6 +66,20 @@ ALLOWED_GROUP_DEPENDENCY_TYPES: Final[frozenset[str]] = frozenset(
 )
 ALLOWED_GROUP_UPDATE_TYPES: Final[frozenset[str]] = frozenset(
     {"major", "minor", "patch"}
+)
+ALLOWED_WEEKDAYS: Final[frozenset[str]] = frozenset(
+    {
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    }
+)
+TIME_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(?:[01]\d|2[0-3]):[0-5]\d$"
 )
 ALLOWED_INTERVALS: Final[set[str]] = {
     "daily",
@@ -577,7 +592,7 @@ def validate_schedule(
     *,
     label: str,
 ) -> list[str]:
-    """Validate a Dependabot schedule mapping."""
+    """Validate a Dependabot schedule mapping and field combinations."""
 
     errors: list[str] = []
     if not isinstance(schedule, dict):
@@ -588,6 +603,57 @@ def validate_schedule(
     if interval not in ALLOWED_INTERVALS:
         errors.append(
             f"{label} uses unsupported schedule interval {interval!r}."
+        )
+        return errors
+
+    day = schedule.get("day")
+    if day is not None:
+        if not isinstance(day, str) or day not in ALLOWED_WEEKDAYS:
+            errors.append(
+                f"{label} schedule day must be a lowercase weekday name."
+            )
+        elif interval != "weekly":
+            errors.append(
+                f"{label} schedule day is only valid with interval 'weekly'."
+            )
+
+    time = schedule.get("time")
+    if time is not None and (
+        not isinstance(time, str) or TIME_PATTERN.fullmatch(time) is None
+    ):
+        errors.append(
+            f"{label} schedule time must use 24-hour HH:MM format."
+        )
+
+    timezone = schedule.get("timezone")
+    if timezone is not None:
+        if not isinstance(timezone, str) or not timezone.strip():
+            errors.append(
+                f"{label} schedule timezone must be a non-empty IANA timezone."
+            )
+        else:
+            try:
+                ZoneInfo(timezone)
+            except ZoneInfoNotFoundError:
+                errors.append(
+                    f"{label} schedule timezone {timezone!r} is not a known "
+                    "IANA timezone."
+                )
+
+        if time is None:
+            errors.append(
+                f"{label} schedule timezone requires schedule time."
+            )
+
+    cronjob = schedule.get("cronjob")
+    if interval == "cron":
+        if not isinstance(cronjob, str) or not cronjob.strip():
+            errors.append(
+                f"{label} schedule interval 'cron' requires a non-empty cronjob."
+            )
+    elif cronjob is not None:
+        errors.append(
+            f"{label} schedule cronjob is only valid with interval 'cron'."
         )
 
     return errors

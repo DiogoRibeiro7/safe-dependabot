@@ -67,3 +67,10 @@ With `require-github-actions: true`, Safe Dependabot requires a `github-actions`
 ## Security updates
 
 Safe Dependabot validates configuration. It does not approve, merge, or suppress security updates, and it does not replace Dependabot alerts or dependency review.
+
+
+## Schedule semantics
+
+Safe Dependabot validates the combinations of schedule fields that materially affect Dependabot behavior. In particular, cron schedules must provide `cronjob`, weekly `day` values are checked explicitly, clock times use 24-hour `HH:MM`, and timezone identifiers are validated against the IANA timezone database.
+
+The same validation is used for standalone update schedules and top-level multi-ecosystem group schedules.

@@ -372,6 +372,201 @@ def test_multi_ecosystem_group_requires_schedule() -> None:
     )
 
 
+def test_weekly_schedule_accepts_day_time_and_timezone() -> None:
+    """A fully specified weekly schedule should pass validation."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "weekly",
+        "day": "tuesday",
+        "time": "02:00",
+        "timezone": "Europe/Lisbon",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+
+
+def test_cron_schedule_requires_cronjob() -> None:
+    """Cron intervals must provide a cronjob expression."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {"interval": "cron"}
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "interval 'cron' requires a non-empty cronjob" in error
+        for error in errors
+    )
+
+
+def test_valid_cron_schedule_passes() -> None:
+    """A cron interval with an expression should pass."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "cron",
+        "cronjob": "0 9 * * *",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+
+
+def test_cronjob_is_rejected_for_non_cron_interval() -> None:
+    """A cronjob field should not silently apply to weekly schedules."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "weekly",
+        "cronjob": "0 9 * * *",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "cronjob is only valid with interval 'cron'" in error
+        for error in errors
+    )
+
+
+def test_day_is_rejected_for_non_weekly_interval() -> None:
+    """The day field is only meaningful for weekly schedules."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "daily",
+        "day": "monday",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "day is only valid with interval 'weekly'" in error
+        for error in errors
+    )
+
+
+def test_schedule_time_uses_24_hour_hh_mm() -> None:
+    """Invalid schedule clock values should fail."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "weekly",
+        "time": "24:00",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("24-hour HH:MM format" in error for error in errors)
+
+
+def test_schedule_timezone_must_be_known_iana_zone() -> None:
+    """Unknown timezone identifiers should fail."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "weekly",
+        "time": "09:00",
+        "timezone": "Mars/Olympus",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("is not a known IANA timezone" in error for error in errors)
+
+
+def test_schedule_timezone_requires_time() -> None:
+    """Timezone without a time value is not a meaningful schedule."""
+
+    config = safe_config()
+    config["updates"][0]["schedule"] = {
+        "interval": "weekly",
+        "timezone": "UTC",
+    }
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any("timezone requires schedule time" in error for error in errors)
+
+
+def test_multi_ecosystem_group_uses_same_cron_validation() -> None:
+    """Top-level multi-ecosystem group schedules should share validation."""
+
+    config = safe_config()
+    config["multi-ecosystem-groups"] = {
+        "runtime": {"schedule": {"interval": "cron"}}
+    }
+    config["updates"][0].pop("schedule")
+    config["updates"][0]["multi-ecosystem-group"] = "runtime"
+    config["updates"][0]["patterns"] = ["*"]
+
+    errors, _, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert any(
+        "multi-ecosystem-groups.runtime schedule interval 'cron' "
+        "requires a non-empty cronjob" in error
+        for error in errors
+    )
+
+
 def test_multi_ecosystem_group_schedule_interval_is_validated() -> None:
     """Top-level group schedules should use supported intervals."""
 
