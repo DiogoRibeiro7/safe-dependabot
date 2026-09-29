@@ -734,21 +734,49 @@ def validate_multi_ecosystem_groups(
     return errors, referenced_groups
 
 
+def is_unconstrained_wildcard_group(definition: dict[str, Any]) -> bool:
+    """Return whether a wildcard group remains effectively unconstrained."""
+
+    patterns = definition.get("patterns", [])
+    if not isinstance(patterns, list) or "*" not in patterns:
+        return False
+
+    exclude_patterns = definition.get("exclude-patterns")
+    if isinstance(exclude_patterns, list) and exclude_patterns:
+        return False
+
+    dependency_type = definition.get("dependency-type")
+    if dependency_type in ALLOWED_GROUP_DEPENDENCY_TYPES:
+        return False
+
+    update_types = definition.get("update-types")
+    if isinstance(update_types, list) and update_types:
+        if set(update_types) != set(ALLOWED_GROUP_UPDATE_TYPES):
+            return False
+
+    # Version updates are the default Dependabot group scope, so explicitly
+    # spelling that value does not narrow the group. Security-only grouping
+    # does narrow it materially.
+    applies_to = definition.get("applies-to")
+    if applies_to == "security-updates":
+        return False
+
+    return True
+
+
 def broad_group_names(update: dict[str, Any]) -> list[str]:
-    """Return dependency groups that match every dependency."""
+    """Return wildcard groups with no meaningful narrowing constraints."""
 
     groups = update.get("groups", {})
     if not isinstance(groups, dict):
         return []
 
-    broad: list[str] = []
-    for name, definition in groups.items():
-        if not isinstance(definition, dict):
-            continue
-        patterns = definition.get("patterns", [])
-        if isinstance(patterns, list) and "*" in patterns:
-            broad.append(str(name))
-    return broad
+    return [
+        str(name)
+        for name, definition in groups.items()
+        if isinstance(definition, dict)
+        and is_unconstrained_wildcard_group(definition)
+    ]
 
 
 def normalize_directory(value: str) -> str:
@@ -1176,8 +1204,9 @@ def validate(
 
         for group in broad_group_names(raw_update):
             message = (
-                f"{label} ({ecosystem}) group {group!r} matches all dependencies; "
-                "this can make failures harder to isolate."
+                f"{label} ({ecosystem}) group {group!r} matches all dependency "
+                "names, dependency types, and SemVer update types for routine "
+                "version updates; this can make failures harder to isolate."
             )
             if fail_on_broad_groups:
                 errors.append(message)
