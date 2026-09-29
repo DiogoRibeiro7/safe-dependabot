@@ -651,7 +651,12 @@ def test_every_supported_ecosystem_has_a_detection_fixture(tmp_path: Path) -> No
         "pip": [("python/requirements.txt", "pyyaml==6.0.2\n")],
         "pre-commit": [("hooks/.pre-commit-config.yaml", "repos: []\n")],
         "pub": [("dart/pubspec.yaml", "name: demo\n")],
-        "rust-toolchain": [("toolchain/rust-toolchain.toml", '[toolchain]\nchannel = "1.90"\n')],
+        "rust-toolchain": [
+            (
+                "toolchain/rust-toolchain.toml",
+                '[toolchain]\nchannel = "1.90"\n',
+            )
+        ],
         "sbt": [("scala/build.sbt", 'scalaVersion := "3.7.0"\n')],
         "swift": [("swift/Package.swift", "// swift-tools-version: 6.0\n")],
         "terraform": [("terraform/main.tf", 'terraform {}\n')],
