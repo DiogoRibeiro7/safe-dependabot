@@ -770,7 +770,145 @@ def test_broad_groups_warn_by_default() -> None:
     )
 
     assert errors == []
-    assert any("matches all dependencies" in warning for warning in warnings)
+    assert any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_wildcard_group_with_exclusions_is_not_broad() -> None:
+    """Exclude patterns materially narrow a wildcard group."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "safe": {
+            "patterns": ["*"],
+            "exclude-patterns": ["django"],
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_wildcard_group_with_dependency_type_is_not_broad() -> None:
+    """Development-only wildcard groups should not be called fully broad."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "dev": {
+            "patterns": ["*"],
+            "dependency-type": "development",
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_wildcard_group_with_update_types_is_not_broad() -> None:
+    """Patch/minor-only wildcard groups are meaningfully constrained."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "safe": {
+            "patterns": ["*"],
+            "update-types": ["minor", "patch"],
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_wildcard_security_update_group_is_not_broad() -> None:
+    """Security-only wildcard groups should not trigger the broad warning."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "security": {
+            "patterns": ["*"],
+            "applies-to": "security-updates",
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert not any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_explicit_version_scope_remains_broad_without_other_constraints() -> None:
+    """Explicit version-updates is equivalent to the default broad scope."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "everything": {
+            "patterns": ["*"],
+            "applies-to": "version-updates",
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert any("matches all dependency names" in warning for warning in warnings)
+
+
+def test_all_semver_update_types_remain_broad() -> None:
+    """Listing every SemVer level should not disguise an unconstrained group."""
+
+    config = safe_config()
+    config["updates"][0]["groups"] = {
+        "everything": {
+            "patterns": ["*"],
+            "update-types": ["major", "minor", "patch"],
+        }
+    }
+
+    errors, warnings, _ = validator.validate(
+        config,
+        max_open_prs=5,
+        require_major_ignore=True,
+        require_github_actions=True,
+        fail_on_broad_groups=False,
+    )
+
+    assert errors == []
+    assert any("matches all dependency names" in warning for warning in warnings)
 
 
 def test_broad_groups_can_be_made_fatal() -> None:
@@ -789,7 +927,7 @@ def test_broad_groups_can_be_made_fatal() -> None:
         fail_on_broad_groups=True,
     )
 
-    assert any("matches all dependencies" in error for error in errors)
+    assert any("matches all dependency names" in error for error in errors)
 
 
 def test_github_actions_block_can_be_required() -> None:
