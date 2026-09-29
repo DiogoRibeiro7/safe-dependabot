@@ -99,7 +99,7 @@ NUGET_SUFFIXES: Final[set[str]] = {
     ".vcxproj",
 }
 DOCKER_COMPOSE_FILENAME_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(docker-)?compose(-[\\w]+)?(?:\\.[\\w-]+)?\\.ya?ml$",
+    r"^(docker-)?compose(-[\w]+)?(?:\.[\w-]+)?\.ya?ml$",
     re.IGNORECASE,
 )
 DOCKERFILE_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(
@@ -222,9 +222,11 @@ def looks_like_kubernetes_manifest(path: Path) -> bool:
     except (OSError, UnicodeError):
         return False
 
-    has_api_version = re.search(r"(?m)^\\s*apiVersion\\s*:", content) is not None
-    has_kind = re.search(r"(?m)^\\s*kind\\s*:", content) is not None
-    has_image = re.search(r"(?m)^\\s*image\\s*:", content) is not None
+    has_api_version = re.search(r"(?m)^\s*apiVersion\s*:", content) is not None
+    has_kind = re.search(r"(?m)^\s*kind\s*:", content) is not None
+    has_image = (
+        re.search(r"(?m)^\s*(?:-\s*)?image\s*:", content) is not None
+    )
     return has_api_version and has_kind and has_image
 
 
