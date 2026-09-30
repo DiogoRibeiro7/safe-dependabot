@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -18,6 +19,7 @@ def load_validator() -> ModuleType:
         raise RuntimeError("Could not load validator module.")
 
     module = module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
