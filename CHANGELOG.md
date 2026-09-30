@@ -6,6 +6,13 @@ The project follows semantic versioning.
 
 ## Unreleased
 
+## 1.1.1 - 2026-09-30
+
+### Fixed
+
+- Treat GitHub release tag checkouts as unscoped repository snapshots instead of interpreting the tag name as a Dependabot target branch.
+- Allow release self-validation to match normal default-branch Dependabot update blocks when running from tags such as `v1.1.0`.
+
 ## 1.1.0 - 2026-09-30
 
 ### Added
